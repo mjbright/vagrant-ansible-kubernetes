@@ -33,9 +33,9 @@ which should show something like
 ```
 Current machine states:
 
-k8s-master                not created (virtualbox)
-node-1                    not created (virtualbox)
-node-2                    not created (virtualbox)
+k8s-master                running (virtualbox)
+node-1                    running (virtualbox)
+node-2                    running (virtualbox)
 ```
 
 - logging into the master node
