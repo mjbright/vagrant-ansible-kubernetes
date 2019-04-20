@@ -45,10 +45,9 @@ vagrant ssh k8s-master
 ```
 
 ## list nodes of the cluster
-then once logged in:
+once logged in:
 ```
 vagrant@k8s-master:~$ kubectl get nodes
-```
 ```
 
 should show something like
