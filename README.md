@@ -65,6 +65,7 @@ node-2       Ready    <none>   5h58m   v1.14.1
 - Recuperate kubeconfig info locally
 - Test kubecongfig locally
 - Create some pods, services and test access
+- Use latest Ubuntu LTS (currently 18.04.x)
 
 ## Future versions
 
