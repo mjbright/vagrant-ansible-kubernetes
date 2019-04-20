@@ -22,7 +22,7 @@ install Kubernetes across the cluster of VMs using the ```vagrant up``` command.
 
 Once successfully complete check that the cluster is functioning by:
 
-- Checking all nodes are created/running
+## Check all nodes are created/running
 
 ```
 vagrant status
@@ -38,13 +38,13 @@ node-1                    running (virtualbox)
 node-2                    running (virtualbox)
 ```
 
-- logging into the master node
+## Log into the master node
+
 ```
 vagrant ssh k8s-master
 ```
-```
 
-- listing nodes of the cluster
+## list nodes of the cluster
 then once logged in:
 ```
 vagrant@k8s-master:~$ kubectl get nodes
