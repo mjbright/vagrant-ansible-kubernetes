@@ -1,4 +1,3 @@
-
 ---
 - hosts: all
   become: true
@@ -79,59 +78,51 @@
         - kubeadm 
         - kubectl
 
-  - name: Check if cluster is operational
-    command: kubectl get nodes
-    become: yes
-    become_user: vagrant
-    register: kube_is_up
-    ignore_errors: True
+  - name: Configure node ip
+    lineinfile:
+      #path: /etc/default/kubelet
+      path: /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
+      line: Environment="KUBELET_EXTRA_ARGS=--node-ip={{ node_ip }}"
+      insertafter: '\[Service\]'
 
-  - name: Reset the Kubernetes cluster using kubeadm
-    command: kubeadm reset -f
-    when: kube_is_up is failed
-    ignore_errors: True
+  - name: Restart kubelet
+    service:
+      name: kubelet
+      daemon_reload: yes
+      state: restarted
 
   - name: Initialize the Kubernetes cluster using kubeadm
-    command: kubeadm init --apiserver-advertise-address="192.168.50.10" --apiserver-cert-extra-sans="192.168.50.10"  --node-name k8s-master --pod-network-cidr="192.168.0.0/16"
-    when: kube_is_up is failed
-
-    ## # In older versions of ansible use ``success``, now both are valid but succeeded uses the correct tense.
-    ## - command: /bin/something_else
-    ## when: kube_is_up is succeeded
-
-    ## - command: /bin/still/something_else
-    ## when: kube_is_up is skipped
+    command: kubeadm init --apiserver-advertise-address="192.168.50.11" --apiserver-cert-extra-sans="192.168.50.11"  --node-name master --pod-network-cidr=192.168.0.0/16
 
   - name: Setup kubeconfig for vagrant user
     command: "{{ item }}"
     with_items:
-     - mkdir -p /home/vagrant/.kube /root/.kube
-     - cp -a /etc/kubernetes/admin.conf /root/.kube/config
-     - cp -a /etc/kubernetes/admin.conf /home/vagrant/.kube/config
-     - chown vagrant:vagrant /home/vagrant/.kube/config
+     - mkdir -p /home/vagrant/.kube
+     - cp -i /etc/kubernetes/admin.conf /home/vagrant/.kube/config
+     - chown -R vagrant:vagrant /home/vagrant/.kube/
 
-  - name: Install calico pod network
-    #/etc/cni/net.d/calico-kubeconfig
-    command: kubectl create -f https://docs.projectcalico.org/v3.4/getting-started/kubernetes/installation/hosted/calico.yaml
-    # http://www.mydailytutorials.com/working-ansible-conditionals-using-clause/
-    when: kube_is_up is failed
+       #- name: Install calico pod network
+       #  become: false
+       # command: kubectl create -f https://docs.projectcalico.org/v3.4/getting-started/kubernetes/installation/hosted/calico.yaml
+  - name: Install calico pod network operator
+    become: false
+    command: kubectl create -f https://docs.projectcalico.org/manifests/tigera-operator.yaml
 
-  - name: Re-Install calico pod network, if needed
-    #/etc/cni/net.d/calico-kubeconfig
-    command: kubectl apply -f https://docs.projectcalico.org/v3.4/getting-started/kubernetes/installation/hosted/calico.yaml
-    # http://www.mydailytutorials.com/working-ansible-conditionals-using-clause/
-    when: kube_is_up is succeeded
+  - name: Install calico pod network crds
+    become: false
+    command: kubectl create -f https://docs.projectcalico.org/manifests/custom-resources.yaml
 
   - name: Generate join command
     command: kubeadm token create --print-join-command
     register: join_command
 
   - name: Copy join command to local file
-    # dest MUST BE an ABSOLUTE PATH:
-    local_action: copy content="{{ join_command.stdout_lines[0] }}" dest="/tmp/k8s-join-command.sh"
     become: false
+    local_action: copy content="{{ join_command.stdout_lines[0] }}" dest="./join-command"
+
 
   handlers:
     - name: docker status
       service: name=docker state=started
+
 

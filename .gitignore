@@ -1,1 +1,5 @@
 .vagrant/
+BACKUPS/
+old/
+ubuntu-bionic-18.04-cloudimg-console.log
+kubernetes-setup/join-command
