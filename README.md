@@ -9,11 +9,11 @@ by Naresh L J (Infosys).
 
 It has been slightly modified and tested using:
 ```
-Ansible 2.7.7
-Vagrant: 2.2.4
-VirtualBox-5.2.24-1
+Ansible 2.5.1
+Vagrant 2.2.9
+VirtualBox-5.2.42_Ubuntur137960
 ```
-on Fedora 28.
+on Ubuntu 18.04 LTS.
 
 ## Installing Kubernetes
 
