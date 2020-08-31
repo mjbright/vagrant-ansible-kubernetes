@@ -1,0 +1,137 @@
+
+---
+- hosts: all
+  become: true
+  tasks:
+  - name: Install packages that allow apt to be used over HTTPS
+    apt:
+      name: "{{ packages }}"
+      state: present
+      update_cache: yes
+    vars:
+      packages:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg-agent
+      - software-properties-common
+
+  - name: Add an apt signing key for Docker
+    apt_key:
+      url: https://download.docker.com/linux/ubuntu/gpg
+      state: present
+
+  - name: Add apt repository for stable version
+    apt_repository:
+      repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu xenial stable
+      state: present
+
+  - name: Install docker and its dependecies
+    apt: 
+      name: "{{ packages }}"
+      state: present
+      update_cache: yes
+    vars:
+      packages:
+      - docker-ce 
+      - docker-ce-cli 
+      - containerd.io
+    notify:
+      - docker status
+
+  - name: Add vagrant user to docker group
+    user:
+      name: vagrant
+      group: docker
+
+  - name: Remove swapfile from /etc/fstab
+    mount:
+      name: "{{ item }}"
+      fstype: swap
+      state: absent
+    with_items:
+      - swap
+      - none
+
+  - name: Disable swap
+    command: swapoff -a
+    when: ansible_swaptotal_mb > 0
+
+  - name: Add an apt signing key for Kubernetes
+    apt_key:
+      url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+      state: present
+
+  - name: Adding apt repository for Kubernetes
+    apt_repository:
+      repo: deb https://apt.kubernetes.io/ kubernetes-xenial main
+      state: present
+      filename: kubernetes.list
+
+  - name: Install Kubernetes binaries
+    apt: 
+      name: "{{ packages }}"
+      state: present
+      update_cache: yes
+    vars:
+      packages:
+        - kubelet 
+        - kubeadm 
+        - kubectl
+
+  - name: Check if cluster is operational
+    command: kubectl get nodes
+    become: yes
+    become_user: vagrant
+    register: kube_is_up
+    ignore_errors: True
+
+  - name: Reset the Kubernetes cluster using kubeadm
+    command: kubeadm reset -f
+    when: kube_is_up is failed
+    ignore_errors: True
+
+  - name: Initialize the Kubernetes cluster using kubeadm
+    command: kubeadm init --apiserver-advertise-address="192.168.50.10" --apiserver-cert-extra-sans="192.168.50.10"  --node-name k8s-master --pod-network-cidr="192.168.0.0/16"
+    when: kube_is_up is failed
+
+    ## # In older versions of ansible use ``success``, now both are valid but succeeded uses the correct tense.
+    ## - command: /bin/something_else
+    ## when: kube_is_up is succeeded
+
+    ## - command: /bin/still/something_else
+    ## when: kube_is_up is skipped
+
+  - name: Setup kubeconfig for vagrant user
+    command: "{{ item }}"
+    with_items:
+     - mkdir -p /home/vagrant/.kube /root/.kube
+     - cp -a /etc/kubernetes/admin.conf /root/.kube/config
+     - cp -a /etc/kubernetes/admin.conf /home/vagrant/.kube/config
+     - chown vagrant:vagrant /home/vagrant/.kube/config
+
+  - name: Install calico pod network
+    #/etc/cni/net.d/calico-kubeconfig
+    command: kubectl create -f https://docs.projectcalico.org/v3.4/getting-started/kubernetes/installation/hosted/calico.yaml
+    # http://www.mydailytutorials.com/working-ansible-conditionals-using-clause/
+    when: kube_is_up is failed
+
+  - name: Re-Install calico pod network, if needed
+    #/etc/cni/net.d/calico-kubeconfig
+    command: kubectl apply -f https://docs.projectcalico.org/v3.4/getting-started/kubernetes/installation/hosted/calico.yaml
+    # http://www.mydailytutorials.com/working-ansible-conditionals-using-clause/
+    when: kube_is_up is succeeded
+
+  - name: Generate join command
+    command: kubeadm token create --print-join-command
+    register: join_command
+
+  - name: Copy join command to local file
+    # dest MUST BE an ABSOLUTE PATH:
+    local_action: copy content="{{ join_command.stdout_lines[0] }}" dest="/tmp/k8s-join-command.sh"
+    become: false
+
+  handlers:
+    - name: docker status
+      service: name=docker state=started
+
