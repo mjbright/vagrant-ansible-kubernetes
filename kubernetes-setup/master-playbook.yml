@@ -139,9 +139,11 @@
     become: false
     local_action: copy content="{{ join_command.stdout_lines[0] }}" dest="./join-command"
 
+  - name: Copy the .kube/config file to server
+    become: false
+    fetch: src=~/.kube/config dest=master.kubeconfig mode=0600 flat=yes force=yes
 
   handlers:
     - name: docker status
       service: name=docker state=started
-
 
