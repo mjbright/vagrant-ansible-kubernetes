@@ -91,8 +91,21 @@
       daemon_reload: yes
       state: restarted
 
+  - shell: "kubectl get nodes"
+    ignore_errors: true
+    register: get_nodes_cmd_out
+    become_user: vagrant
+                      
+  - debug: msg="RC={{ get_nodes_cmd_out.rc }} STDOUT={{ get_nodes_cmd_out.stdout }} STDERR={{ get_nodes_cmd_out.stderr }}"
+
   - name: Initialize the Kubernetes cluster using kubeadm
     command: kubeadm init --apiserver-advertise-address="{{ node_ip }}" --apiserver-cert-extra-sans="{{ node_ip }},127.0.0.1,localhost"  --node-name master --pod-network-cidr=192.168.0.0/16
+    when: get_nodes_cmd_out.rc == 1
+    register: kubeadm_init_op
+
+  - name: Copy 'kubadm init' op to local file
+    become: false
+    local_action: copy content="{{ kubeadm_init_op.stdout_lines[0] }}" dest="./kubeadm-init-output"
 
   - name: Setup kubeconfig for vagrant user
     command: "{{ item }}"
