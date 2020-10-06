@@ -6,6 +6,9 @@
 
   tasks:
 
+  - name: Append lines to ~/.bashrc
+    command: bash -c "{ echo; echo 'source <(kubectl completion bash)'; echo 'alias k=kubectl'; echo 'complete -F __start_kubectl k'; } >> .bashrc"
+
   - name: Clone github repos
     git:
       #repo: https://github.com/mjbright/k1s-scenarios
@@ -61,6 +64,6 @@
     get_url:
       url: https://mjbright.github.io/static/bin/k8scenario
       dest: /usr/local/bin/k8scenario
-      mode: '0444'
+      mode: '0555'
 
 
