@@ -114,16 +114,22 @@
      - cp -i /etc/kubernetes/admin.conf /home/vagrant/.kube/config
      - chown -R vagrant:vagrant /home/vagrant/.kube/
 
-       #- name: Install calico pod network
-       #  become: false
-       # command: kubectl create -f https://docs.projectcalico.org/v3.4/getting-started/kubernetes/installation/hosted/calico.yaml
+  - shell: "kubectl get pods -A | grep calico | grep ' Running '"
+    ignore_errors: true
+    register: get_calico_cmd_out
+    become_user: vagrant
+                      
+  - debug: msg="RC={{ get_calico_cmd_out.rc }} STDOUT={{ get_calico_cmd_out.stdout }} STDERR={{ get_calico_cmd_out.stderr }}"
+
   - name: Install calico pod network operator
     become: false
-    command: kubectl create -f https://docs.projectcalico.org/manifests/tigera-operator.yaml
+    command: kubectl apply -f https://docs.projectcalico.org/manifests/tigera-operator.yaml
+    when: get_calico_cmd_out.rc == 1
 
   - name: Install calico pod network crds
     become: false
-    command: kubectl create -f https://docs.projectcalico.org/manifests/custom-resources.yaml
+    command: kubectl apply -f https://docs.projectcalico.org/manifests/custom-resources.yaml
+    when: get_calico_cmd_out.rc == 1
 
   - name: Generate join command
     command: kubeadm token create --print-join-command
