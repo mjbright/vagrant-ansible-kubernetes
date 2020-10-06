@@ -1,0 +1,66 @@
+---
+- hosts: master
+  become: true
+  vars:
+    helm_version: v3.3.1
+
+  tasks:
+
+  - name: Clone github repos
+    git:
+      #repo: https://github.com/mjbright/k1s-scenarios
+      #dest: /home/vagrant/src/github.com/k1s-scenarios
+      repo: "https://github.com/mjbright/{{ item }}"
+      dest: "/home/vagrant/src/github.com/{{ item }}"
+      version: master
+      update: no
+    become_user: vagrant
+    with_items:
+      - k1s-scenarios
+      - k1s
+      - k1spy
+      - kubeview
+
+  - name: Install tool packages ...
+    apt:
+      name: "{{ packages }}"
+      state: present
+      update_cache: yes
+    vars:
+      packages:
+      - tmux
+      - jq
+
+  - name: Install helm
+    unarchive:
+      remote_src: yes
+      src: https://get.helm.sh/helm-{{ helm_version }}-linux-amd64.tar.gz
+      dest: /usr/local/bin
+
+  - name: Move /usr/local/bin/linux-amd64/helm to /usr/local/bin/helm
+    command: mv /usr/local/bin/linux-amd64/helm /usr/local/bin/helm
+
+  - name: helm version
+    command: bash -c 'helm version |& tee /tmp/install.helm.version'
+
+  - name: Install krew
+    become_user: vagrant
+    command: bash -c '{ set -x; cd "$(mktemp -d)" && curl -fsSLO "https://github.com/kubernetes-sigs/krew/releases/latest/download/krew.tar.gz" && tar zxvf krew.tar.gz && KREW=./krew-"$(uname | tr '[:upper:]' '[:lower:]')_amd64" && "$KREW" install krew; } |& tee /tmp/install.krew; exit 0'
+
+  - name: Add krew to PATH in .bashrc
+    become_user: vagrant
+    command: bash -c 'grep -q krew .bashrc || echo "export PATH=~/.krew/bin:$PATH" >> .bashrc'
+
+  - name: Install kubectl plugins - [ tree ]
+    become_user: vagrant
+    command: "~/.krew/bin/kubectl-krew install {{ item }}"
+    with_items:
+      - tree
+
+  - name: Install k8scenario (private)
+    get_url:
+      url: https://mjbright.github.io/static/bin/k8scenario
+      dest: /usr/local/bin/k8scenario
+      mode: '0444'
+
+
