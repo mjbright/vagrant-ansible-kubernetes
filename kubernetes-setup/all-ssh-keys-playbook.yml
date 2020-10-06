@@ -1,0 +1,38 @@
+---
+- hosts: master
+  tasks:
+  - name: Generate ssh-key on master
+    command: ssh-keygen -t rsa -N '' -f ~/.ssh/id_rsa
+    args: 
+    #chdir: /opt 
+      creates: ~/.ssh/id_rsa
+
+  # Hmm, need to cleanup after: /tmp/master_id_rsa*
+  - name: Copy the ssh public key to server
+    fetch: src=~/.ssh/id_rsa.pub dest=/tmp/master_id_rsa.pub mode=0600 flat=yes force=yes
+
+  - name: Copy the ssh private key to server
+    fetch: src=~/.ssh/id_rsa     dest=/tmp/master_id_rsa     mode=0600 flat=yes force=yes
+
+- hosts: all
+  become: true
+  tasks:
+  - name: Copy the master ssh public key to all nodes
+    copy: src=/tmp/master_id_rsa.pub dest=.ssh/id_rsa.pub mode=0600 owner=vagrant force=yes
+
+  - name: Copy the master ssh private key to all nodes
+    copy: src=/tmp/master_id_rsa     dest=.ssh/id_rsa     mode=0600 owner=vagrant force=yes
+
+  - name: Append the key to .ssh/authorized_keys
+    command: bash -c "cat .ssh/id_rsa.pub >> .ssh/authorized_keys"
+
+  - name: Copy the tmp/etc.hosts file to all nodes
+    copy: src=../tmp/etc.hosts     dest=/tmp/etc.hosts mode=0600 owner=vagrant force=yes
+
+  - name: Append the /tmp/etc.hosts to /etc/hosts
+    command: bash -c "grep worker /etc/hosts || cat /tmp/etc.hosts >> /etc/hosts"
+
+  - name: Connect from current node to each node
+    command: bash -c "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -qt {{ item }} uptime |& tee /tmp/from.{{ inventory_hostname }}.to.{{ item }}; exit 0"
+    with_items: "{{ groups['all'] }}"
+
