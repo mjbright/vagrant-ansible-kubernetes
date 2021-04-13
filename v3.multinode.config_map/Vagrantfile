@@ -1,0 +1,42 @@
+IMAGE_NAME = "ubuntu/groovy64"
+
+CPU_MASTER = 2
+CPU_WORKER = 1
+
+MEMORY_MB_MASTER = 2048
+MEMORY_MB_WORKER = 1024
+
+PLAYBOOK_MASTER = "kubernetes-setup/master-playbook.yml"
+PLAYBOOK_WORKER = "kubernetes-setup/worker-playbook.yml"
+
+# Be careful that this matches with values in playbooks:
+# master: 192.168.50.11
+HOST_SUBNET="192.168.50"
+
+cluster = {
+  "master" => { :ip => "#{HOST_SUBNET}.11", :cpus => CPU_MASTER, :mem => MEMORY_MB_MASTER, :playbook => PLAYBOOK_MASTER },
+  "worker-1" => { :ip => "#{HOST_SUBNET}.12", :cpus => CPU_WORKER, :mem => MEMORY_MB_WORKER, :playbook => PLAYBOOK_WORKER },
+  "worker-2" => { :ip => "#{HOST_SUBNET}.13", :cpus => CPU_WORKER, :mem => MEMORY_MB_WORKER, :playbook => PLAYBOOK_WORKER }
+}
+
+Vagrant.configure("2") do |config|
+
+    cluster.each_with_index do |(node_name, info), index|
+        config.ssh.insert_key = false
+        config.vm.define node_name do |cfg|
+            cfg.vm.provider :virtualbox do |vb, override|
+              config.vm.box = IMAGE_NAME
+              override.vm.network :private_network, ip: "#{info[:ip]}"
+              override.vm.hostname = node_name
+              vb.name = node_name
+              vb.customize ["modifyvm", :id, "--memory", info[:mem], "--cpus", info[:cpus], "--hwvirtex", "on"]
+            end # end provider
+            cfg.vm.provision "ansible" do |ansible|
+                ansible.playbook = "#{info[:playbook]}"
+                ansible.extra_vars = {
+                node_ip: "#{info[:ip]}"
+                }
+            end
+        end # end config
+    end # end cluster
+end # end Vagrant.configure
