@@ -21,6 +21,8 @@ cluster = {
 
 Vagrant.configure("2") do |config|
 
+    config.vbguest.iso_path = "https://download.virtualbox.org/virtualbox/6.1.18/VBoxGuestAdditions_6.1.18.iso"
+
     cluster.each_with_index do |(node_name, info), index|
         config.ssh.insert_key = false
         config.vm.define node_name do |cfg|
@@ -31,6 +33,8 @@ Vagrant.configure("2") do |config|
               vb.name = node_name
               vb.customize ["modifyvm", :id, "--memory", info[:mem], "--cpus", info[:cpus], "--hwvirtex", "on"]
             end # end provider
+            cfg.vm.provision "shell",
+                inline: "apt-get update; apt-get install -y ansible"
             cfg.vm.provision "ansible" do |ansible|
                 ansible.playbook = "#{info[:playbook]}"
                 ansible.extra_vars = {
