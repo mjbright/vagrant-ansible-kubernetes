@@ -33,8 +33,6 @@ Vagrant.configure("2") do |config|
               vb.name = node_name
               vb.customize ["modifyvm", :id, "--memory", info[:mem], "--cpus", info[:cpus], "--hwvirtex", "on"]
             end # end provider
-            cfg.vm.provision "shell",
-                inline: "apt-get update; apt-get install -y ansible"
             cfg.vm.provision "ansible" do |ansible|
                 ansible.playbook = "#{info[:playbook]}"
                 ansible.extra_vars = {
